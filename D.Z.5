@@ -1,0 +1,342 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <conio.h>
+#include <unistd.h>
+#include <time.h>
+#include <windows.h>
+
+#define MAX_X 15
+#define MAX_Y 15
+#define INITIAL_DELAY 100000 // 100 мс
+
+enum direction { LEFT, RIGHT, UP, DOWN };
+
+typedef struct tail_t{
+    int x;
+    int y;
+} tail_t;
+
+typedef struct snake_t{
+    int x;
+    int y;
+    struct tail_t * tail;
+    size_t tsize;
+    int level;
+} snake_t;
+
+typedef struct food_t{
+    int x;
+    int y;
+} food_t;
+
+snake_t initSnake(int x, int y, size_t tsize){
+    snake_t snake;
+    snake.x = x;
+    snake.y = y;
+    snake.tsize = tsize;
+    snake.tail = (tail_t *) malloc (sizeof(tail_t) * 100);
+    snake.level = 0;
+    for (int i =0; i < tsize; ++i){
+        snake.tail[i].x = x + i +1;
+        snake.tail[i].y = y;
+    }
+    return snake;
+}
+
+food_t generateFood() {
+    food_t food;
+    food.x = rand() % MAX_X;
+    food.y = rand() % MAX_Y;
+    return food;
+}
+
+void printSnakes(snake_t snake1, snake_t snake2, food_t food, int paused, int color1, int color2){
+    char matrix[MAX_X][MAX_Y];
+    for (int i = 0; i < MAX_X; ++i){
+        for (int j = 0; j < MAX_Y; ++j) {
+            matrix[i][j] = ' ';
+        }
+    }
+
+    matrix[snake1.x][snake1.y] = '@';
+    for (int i = 0; i < snake1.tsize; ++i){
+        matrix[snake1.tail[i].x][snake1.tail[i].y] = '*';
+    }
+
+    matrix[snake2.x][snake2.y] = '#';
+    for (int i = 0; i < snake2.tsize; ++i){
+        matrix[snake2.tail[i].x][snake2.tail[i].y] = '+';
+    }
+
+    matrix[food.x][food.y] = '$';
+
+    for (int j = 0; j < MAX_Y; ++j){
+        for (int i = 0; i < MAX_X; ++i)
+        {
+            if (matrix[i][j] == '@' || matrix[i][j] == '*') {
+                if (color1 == 1) {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10); // Зеленый цвет
+                } else if (color1 == 2) {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 12); // Красный цвет
+                } else {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 11); // Синий цвет
+                }
+            } else if (matrix[i][j] == '#' || matrix[i][j] == '+') {
+                if (color2 == 1) {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10); // Зеленый цвет
+                } else if (color2 == 2) {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 12); // Красный цвет
+                } else {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 11); // Синий цвет
+                }
+            } else if (matrix[i][j] == '$') {
+                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 14); // Желтый цвет
+            } else {
+                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7); // Белый цвет
+            }
+            printf("%c", matrix[i][j]);
+        }
+        printf("\n");
+    }
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7); // Белый цвет
+    printf("Level 1: %d\n", snake1.level);
+    printf("Level 2: %d\n", snake2.level);
+    if (paused) {
+        printf("The game is suspended. Click 'P', to continue.\n");
+    } else {
+        printf("Click 'P', to pause the game.\n");
+    }
+
+}
+
+snake_t moveSnake(snake_t snake, enum direction direction) {
+    for (int i = snake.tsize - 1; i > 0; i--) {
+        snake.tail[i] = snake.tail[i - 1];
+    }
+    snake.tail[0].x = snake.x;
+    snake.tail[0].y = snake.y;
+
+    switch (direction) {
+        case LEFT:
+            snake.x = (snake.x - 1 + MAX_X) % MAX_X;
+            break;
+        case RIGHT:
+            snake.x = (snake.x + 1) % MAX_X;
+            break;
+        case UP:
+            snake.y = (snake.y - 1 + MAX_Y) % MAX_Y;
+            break;
+        case DOWN:
+            snake.y = (snake.y + 1) % MAX_Y;
+            break;
+    }
+
+    return snake;
+
+}
+
+int isValidDirection(enum direction currentDirection, enum direction newDirection) {
+    if (currentDirection == LEFT && newDirection == RIGHT) return 0;
+    if (currentDirection == RIGHT && newDirection == LEFT) return 0;
+    if (currentDirection == UP && newDirection == DOWN) return 0;
+    if (currentDirection == DOWN && newDirection == UP) return 0;
+    return 1;
+}
+
+enum direction handleKey(char key, enum direction currentDirection, int* paused) {
+    switch (key) {
+        case 'w':
+        case 'W':
+            if (isValidDirection(currentDirection, UP)) return UP;
+            break;
+        case 's':
+        case 'S':
+            if (isValidDirection(currentDirection, DOWN)) return DOWN;
+            break;
+        case 'a':
+        case 'A':
+            if (isValidDirection(currentDirection, LEFT)) return LEFT;
+            break;
+        case 'd':
+        case 'D':
+            if (isValidDirection(currentDirection, RIGHT)) return RIGHT;
+            break;
+        default:
+            return currentDirection;
+    }
+    return currentDirection;
+}
+
+enum direction handleKey2(char key, enum direction currentDirection, int* paused) {
+    switch (key) {
+        case 'i':
+        case 'I':
+            if (isValidDirection(currentDirection, UP)) return UP;
+            break;
+        case 'k':
+        case 'K':
+            if (isValidDirection(currentDirection, DOWN)) return DOWN;
+            break;
+        case 'j':
+        case 'J':
+            if (isValidDirection(currentDirection, LEFT)) return LEFT;
+            break;
+        case 'l':
+        case 'L':
+            if (isValidDirection(currentDirection, RIGHT)) return RIGHT;
+            break;
+        default:
+            return currentDirection;
+    }
+    return currentDirection;
+}
+
+int getDelay(int level) {
+    return INITIAL_DELAY - level * 10000;
+}
+
+enum direction findFood(snake_t snake, food_t food) {
+    int dx = food.x - snake.x;
+    int dy = food.y - snake.y;
+    if (abs(dx) > abs(dy)) {
+        if (dx > 0) return RIGHT;
+        else return LEFT;
+    } else {
+        if (dy > 0) return DOWN;
+        else return UP;
+    }
+}
+
+void startMenu(int* color1, int* color2, int* mode) {
+    int choice;
+    printf("Snake\n");
+    printf("-------\n");
+    printf("1. Start the game\n");
+    printf("2. Choose the color of the snake\n");
+    printf("3. Select the game mode\n");
+    printf("4. Exit the game\n");
+    printf("-------\n");
+    printf("Enter your choice: ");
+    scanf("%d", &choice);
+    switch (choice) {
+        case 1:
+            // Начать игру
+            return;
+        case 2:
+            // Выбрать цвет змейки
+            printf("Choose the color of the snake 1:\n");
+            printf("1. Green\n");
+            printf("2. Red\n");
+            printf("3. Blue\n");
+            scanf("%d", color1);
+            if (*color1 < 1 || *color1 > 3) {
+                printf("Invalid choice\n");
+                startMenu(color1, color2, mode);
+            }
+            printf("Choose the color of the snake 2:\n");
+            printf("1. Green\n");
+            printf("2. Red\n");
+            printf("3. Blue\n");
+            scanf("%d", color2);
+            if (*color2 < 1 || *color2 > 3) {
+                printf("Invalid choice\n");
+                startMenu(color1, color2, mode);
+            }
+            startMenu(color1, color2, mode);
+            break;
+        case 3:
+            // Выбрать режим игры
+            printf("Select the game mode:\n");
+            printf("1. Single Player game\n");
+            printf("2. Multiplayer game\n");
+            scanf("%d", mode);
+            if (*mode < 1 || *mode > 2) {
+                printf("Invalid choice\n");
+                startMenu(color1, color2, mode);
+            }
+            startMenu(color1, color2, mode);
+            break;
+        case 4:
+            // Выйти из игры
+            exit(0);
+            break;
+        default:
+            printf("Invalid choice\n");
+            startMenu(color1, color2, mode);
+    }
+}
+
+int main() {
+    srand(time(NULL));
+    int color1 = 1;
+    int color2 = 2;
+    int mode = 2;
+    startMenu(&color1, &color2, &mode);
+    snake_t snake1 = initSnake(10, 5, 2);
+    snake_t snake2 = initSnake(5, 10, 2);
+    food_t food = generateFood();
+    enum direction direction1 = LEFT;
+    enum direction direction2 = RIGHT;
+    int paused = 0;
+    while (1) {
+        if (kbhit()) {
+            char key = getch();
+            if (key == 'p' || key == 'P') {
+                paused =!paused;
+            } else if (key == 'w' || key == 'W' || key == 'a' || key == 'A' || key == 's' || key == 'S' || key == 'd' || key == 'D') {
+                direction1 = handleKey(key, direction1, &paused);
+            } else if (key == 'i' || key == 'I' || key == 'j' || key == 'J' || key == 'k' || key == 'K' || key == 'l' || key == 'L') {
+                direction2 = handleKey2(key, direction2, &paused);
+            }
+        }
+        if (!paused) {
+            direction1 = findFood(snake1, food);
+            direction2 = findFood(snake2, food);
+            snake1 = moveSnake(snake1, direction1);
+            snake2 = moveSnake(snake2, direction2);
+            // Проверка на столкновение змейки с другой змейкой
+            for (int i = 0; i < snake2.tsize; ++i) {
+                if (snake1.x == snake2.tail[i].x && snake1.y == snake2.tail[i].y) {
+                    snake1.x = rand() % MAX_X;
+                    snake1.y = rand() % MAX_Y;
+                    // Переместить тело змейки в новое место
+                    for (int j = 0; j < snake1.tsize; ++j) {
+                        snake1.tail[j].x = snake1.x + j + 1;
+                        snake1.tail[j].y = snake1.y;
+                    }
+                }
+            }
+            for (int i = 0; i < snake1.tsize; ++i) {
+                if (snake2.x == snake1.tail[i].x && snake2.y == snake1.tail[i].y) {
+                    snake2.x = rand() % MAX_X;
+                    snake2.y = rand() % MAX_Y;
+                    // Переместить тело змейки в новое место
+                    for (int j = 0; j < snake2.tsize; ++j) {
+                        snake2.tail[j].x = snake2.x + j + 1;
+                        snake2.tail[j].y = snake2.y;
+                    }
+                }
+            }
+            if (snake1.x == food.x && snake1.y == food.y) {
+                snake1.level++;
+                food = generateFood();
+            }
+            if (snake2.x == food.x && snake2.y == food.y) {
+                snake2.level++;
+                food = generateFood();
+            }
+        }
+        system("cls");
+        printSnakes(snake1, snake2, food, paused, color1, color2);
+        if (!paused) {
+            usleep(getDelay(snake1.level));
+        } else {
+            sleep(1);
+        }
+        if (snake1.level >= 10 || snake2.level >= 10) {
+            printf("Game over!\n");
+            break;
+        }
+    }
+    return 0;
+}
