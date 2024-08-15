@@ -2,68 +2,95 @@
 #include <stdlib.h>
 #include <conio.h>
 #include <unistd.h>
+#include <time.h>
 
 #define MAX_X 15
 #define MAX_Y 15
+#define INITIAL_DELAY 100000 // 100 мс
 
 enum direction {
-    LEFT,
-    RIGHT,
-    UP,
-    DOWN
+	LEFT,
+	RIGHT,
+	UP,
+	DOWN
 };
 
 typedef struct tail_t{
-    int x;
-    int y;
+	int x;
+	int y;
 } tail_t;
 
 typedef struct snake_t{
-    int x;
-    int y;
-    struct tail_t * tail;
-    size_t tsize;
+	int x;
+	int y;
+	struct tail_t * tail;
+	size_t tsize;
+	int level; // новая переменная для хранения уровня
 } snake_t;
+
+typedef struct food_t{
+	int x;
+	int y;
+} food_t;
 
 // --> x
 // || Y
 // \/
 // @**
 struct snake_t initSnake(int x, int y, size_t tsize){
-    struct snake_t snake;
-    snake.x = x;
-    snake.y = y;
-    snake.tsize = tsize;
-    snake.tail = (tail_t *) malloc (sizeof(tail_t) * 100);
-    for (int i =0; i < tsize; ++i){
-        snake.tail[i].x = x + i +1;
-        snake.tail[i].y = y;
-    }
-    return snake;
+	struct snake_t snake;
+	snake.x = x;
+	snake.y = y;
+	snake.tsize = tsize;
+	snake.tail = (tail_t *) malloc (sizeof(tail_t) * 100);
+	snake.level = 0; // инициализируем уровень 0
+	for (int i =0; i < tsize; ++i){
+		snake.tail[i].x = x + i +1;
+		snake.tail[i].y = y;
+	}
+	return snake;
+}
+
+food_t generateFood() {
+	food_t food;
+	food.x = rand() % MAX_X;
+	food.y = rand() % MAX_Y;
+	return food;
 }
 
 // @**
-void printSnake(struct snake_t snake){
-    char matrix[MAX_X][MAX_Y];
-    for (int i = 0; i < MAX_X; ++i){
-        for (int j = 0; j < MAX_Y; ++j)
-        {
-            matrix[i][j] = ' ';
-        }
-    }
+void printSnake(struct snake_t snake, food_t food, int paused){
+	char matrix[MAX_X][MAX_Y];
+	for (int i = 0; i < MAX_X; ++i){
+		for (int j = 0; j < MAX_Y; ++j)
+		{
+			matrix[i][j] = ' ';
+		}
+	}
 
-    matrix[snake.x][snake.y] = '@';
-    for (int i = 0; i < snake.tsize; ++i){
-        matrix[snake.tail[i].x][snake.tail[i].y] = '*';
-    }
+	matrix[snake.x][snake.y] = '@';
+	for (int i = 0; i < snake.tsize; ++i){
+		matrix[snake.tail[i].x][snake.tail[i].y] = '*';
+	}
+	matrix[food.x][food.y] = '#'; // еда
 
-    for (int j = 0; j < MAX_Y; ++j){
-        for (int i = 0; i < MAX_X; ++i)
-        {
-            printf("%c", matrix[i][j]);
-        }
-        printf("\n");
-    }
+	for (int j = 0; j < MAX_Y; ++j){
+		for (int i = 0; i < MAX_X; ++i)
+		{
+			printf("%c", matrix[i][j]);
+		}
+		printf("\n");
+	}
+	printf("Level: %d\n", snake.level);
+	if (paused) {
+		printf("The game is suspended. Click 'P', to continue.\n");
+	} else {
+		printf("Click 'P', to pause the game.\n");
+	}
+}
+
+void printExit(struct snake_t snake) {
+	printf("Game over! Your final result: %d Level\n", snake.level);
 }
 
 // <--  @** tsize = 2
@@ -72,119 +99,101 @@ void printSnake(struct snake_t snake){
 //  @**      @***
 //    * <--     *
 //  ***        **
-snake_t moveLeft(snake_t snake){
-    for (int i = snake.tsize - 1; i > 0; i--){
-        snake.tail[i] = snake.tail[i-1];
-    }
-    snake.tail[0].x = snake.x;
-    snake.tail[0].y = snake.y;
+snake_t moveSnake(snake_t snake, enum direction direction) {
+	for (int i = snake.tsize - 1; i > 0; i--) {
+		snake.tail[i] = snake.tail[i - 1];
+	}
+	snake.tail[0].x = snake.x;
+	snake.tail[0].y = snake.y;
 
-    snake.x = snake.x - 1;    
-    if (snake.x < 0){
-        snake.x = MAX_X - 1;
-    }
-    return snake;
-}
+	switch (direction) {
+		case LEFT:
+			snake.x = (snake.x - 1 + MAX_X) % MAX_X;
+			break;
+		case RIGHT:
+			snake.x = (snake.x + 1) % MAX_X;
+			break;
+		case UP:
+			snake.y = (snake.y - 1 + MAX_Y) % MAX_Y;
+			break;
+		case DOWN:
+			snake.y = (snake.y + 1) % MAX_Y;
+			break;
+	}
 
-snake_t moveRight(snake_t snake){
-    for (int i = snake.tsize - 1; i > 0; i--){
-        snake.tail[i] = snake.tail[i-1];
-    }
-    snake.tail[0].x = snake.x;
-    snake.tail[0].y = snake.y;
-
-    snake.x = snake.x + 1;    
-    if (snake.x >= MAX_X){
-        snake.x = 0;
-    }
-    return snake;
-}
-
-snake_t moveUp(snake_t snake){
-    for (int i = snake.tsize - 1; i > 0; i--){
-        snake.tail[i] = snake.tail[i-1];
-    }
-    snake.tail[0].x = snake.x;
-    snake.tail[0].y = snake.y;
-
-    snake.y = snake.y - 1;    
-    if (snake.y < 0){
-        snake.y = MAX_Y - 1;
-    }
-    return snake;
-}
-
-snake_t moveDown(snake_t snake){
-    for (int i = snake.tsize - 1; i > 0; i--){
-        snake.tail[i] = snake.tail[i-1];
-    }
-    snake.tail[0].x = snake.x;
-    snake.tail[0].y = snake.y;
-
-    snake.y = snake.y + 1;    
-    if (snake.y >= MAX_Y){
-        snake.y = 0;
-    }
-    return snake;
+	return snake;
 }
 
 int isValidDirection(enum direction currentDirection, enum direction newDirection) {
-    if (currentDirection == LEFT && newDirection == RIGHT) return 0;
-    if (currentDirection == RIGHT && newDirection == LEFT) return 0;
-    if (currentDirection == UP && newDirection == DOWN) return 0;
-    if (currentDirection == DOWN && newDirection == UP) return 0;
-    return 1;
+	if (currentDirection == LEFT && newDirection == RIGHT) return 0;
+	if (currentDirection == RIGHT && newDirection == LEFT) return 0;
+	if (currentDirection == UP && newDirection == DOWN) return 0;
+	if (currentDirection == DOWN && newDirection == UP) return 0;
+	return 1;
 }
 
-enum direction handleKey(enum direction currentDirection) {
-    char key;
-    key = getch();
-    switch (key) {
-        case 'w':
-        case 'W':
-            if (isValidDirection(currentDirection, UP)) return UP;
-            break;
-        case 's':
-        case 'S':
-            if (isValidDirection(currentDirection, DOWN)) return DOWN;
-            break;
-        case 'a':
-        case 'A':
-            if (isValidDirection(currentDirection, LEFT)) return LEFT;
-            break;
-        case 'd':
-        case 'D':
-            if (isValidDirection(currentDirection, RIGHT)) return RIGHT;
-            break;
-        default:
-            return currentDirection;
-    }
-    return currentDirection;
+enum direction handleKey(enum direction currentDirection, int* paused) {
+	char key;
+	key = getch();
+	switch (key) {
+		case 'w':
+		case 'W':
+			if (isValidDirection(currentDirection, UP)) return UP;
+			break;
+		case 's':
+		case 'S':
+			if (isValidDirection(currentDirection, DOWN)) return DOWN;
+			break;
+		case 'a':
+		case 'A':
+			if (isValidDirection(currentDirection, LEFT)) return LEFT;
+			break;
+		case 'd':
+		case 'D':
+			if (isValidDirection(currentDirection, RIGHT)) return RIGHT;
+			break;
+		case 'p':
+		case 'P':
+			*paused =!*paused;
+			break;
+		default:
+			return currentDirection;
+	}
+	return currentDirection;
 }
 
-int main(){
-    struct snake_t snake = initSnake( 10, 5, 2);
-    enum direction direction = LEFT;
-    printSnake(snake);
-    while(1) {
-        direction = handleKey(direction);
-        switch (direction) {
-            case LEFT:
-                snake = moveLeft(snake);
-                break;
-            case RIGHT:
-                snake = moveRight(snake);
-                break;
-            case UP:
-                snake = moveUp(snake);
-                break;
-            case DOWN:
-                snake = moveDown(snake);
-                break;
-        }
-        sleep(1);
-        system("cls");
-        printSnake(snake);
-    }
-    return 0;
+int getDelay(int level) {
+	return INITIAL_DELAY - level * 10000; // уменьшаем задержку на 10 мс за каждый уровень
+}
+
+int main() {
+	srand(time(NULL));
+	struct snake_t snake = initSnake(10, 5, 2);
+	food_t food = generateFood();
+	enum direction direction = LEFT;
+	int paused = 0;
+	while (1) {
+		if (kbhit()) {
+			direction = handleKey(direction, &paused);
+		}
+		if (!paused) {
+			snake = moveSnake(snake, direction);
+			if (snake.x == food.x && snake.y == food.y) {
+				snake.level++;
+				food = generateFood();
+			}
+		}
+		system("cls");
+		printSnake(snake, food, paused);
+		if (!paused) {
+			usleep(getDelay(snake.level)); // используем функцию getDelay для задержки
+		} else {
+			sleep(1);
+		}
+		if (snake.level >= 10) {
+			printExit(snake);
+			break;
+		}
+	}
+	return 0;
 }
